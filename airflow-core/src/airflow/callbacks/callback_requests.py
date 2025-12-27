@@ -16,15 +16,23 @@
 # under the License.
 from __future__ import annotations
 
-from typing import TYPE_CHECKING, Annotated, Literal
+from collections.abc import Mapping
+from typing import TYPE_CHECKING, Annotated, Any, Literal
 
-from pydantic import BaseModel, Field
+import structlog
+from pydantic import BaseModel, Field, model_validator
+from sqlalchemy import inspect as sa_inspect
+from sqlalchemy.exc import NoInspectionAvailable
+from sqlalchemy.orm.attributes import set_committed_value
+from sqlalchemy.orm.exc import DetachedInstanceError
 
 from airflow.api_fastapi.execution_api.datamodels import taskinstance as ti_datamodel  # noqa: TC001
 from airflow.utils.state import TaskInstanceState
 
 if TYPE_CHECKING:
     from airflow.typing_compat import Self
+
+log = structlog.get_logger(logger_name=__name__)
 
 
 class BaseCallbackRequest(BaseModel):
@@ -94,6 +102,39 @@ class DagRunContext(BaseModel):
 
     dag_run: ti_datamodel.DagRun | None = None
     last_ti: ti_datamodel.TaskInstance | None = None
+
+    @model_validator(mode="before")
+    @classmethod
+    def _sanitize_consumed_asset_events(cls, values: Mapping[str, Any]) -> Mapping[str, Any]:
+        dag_run = values.get("dag_run")
+
+        if dag_run is None:
+            return values
+
+        # DagRunContext may receive non-ORM dag_run objects (e.g. datamodels).
+        # Only apply this validator to ORM-mapped instances.
+        try:
+            _ = sa_inspect(dag_run)
+        except NoInspectionAvailable:
+            return values
+
+        # Relationship access may raise DetachedInstanceError; fall back to empty list to
+        # avoid crashing the scheduler.
+        try:
+            events = dag_run.consumed_asset_events
+            set_committed_value(
+                dag_run,
+                "consumed_asset_events",
+                list(events) if events is not None else [],
+            )
+        except DetachedInstanceError:
+            log.warning(
+                "DagRunContext encountered DetachedInstanceError while accessing "
+                "consumed_asset_events; falling back to empty list"
+            )
+            set_committed_value(dag_run, "consumed_asset_events", [])
+
+        return values
 
 
 class DagCallbackRequest(BaseCallbackRequest):

@@ -35,6 +35,7 @@ from airflow.callbacks.callback_requests import (
     EmailRequest,
     TaskCallbackRequest,
 )
+from airflow.models import DagRun
 from airflow.models.dag import DAG
 from airflow.models.taskinstance import TaskInstance
 from airflow.providers.standard.operators.bash import BashOperator
@@ -203,6 +204,60 @@ class TestDagRunContext:
 
         assert deserialized.dag_run.dag_id == context.dag_run.dag_id
         assert deserialized.last_ti.task_id == context.last_ti.task_id
+
+    def test_dagrun_context_detached_consumed_asset_events(self, session):
+        """
+        DagRunContext should not fail if a detached DagRun raises
+        DetachedInstanceError when accessing consumed_asset_events.
+        """
+        # Create a real ORM DagRun.
+        current_time = timezone.utcnow()
+        dag_run = DagRun(
+            dag_id="test_dag",
+            run_id="test_run_detached",
+            logical_date=current_time,
+            state="running",
+            run_type="manual",
+        )
+
+        # Forcefully detached it to replicate failure mode.
+        session.add(dag_run)
+        session.commit()
+        session.expunge(dag_run)
+
+        # Validation for consumed_asset_events occurs on creation of DagRunContext.
+        context = DagRunContext(dag_run=dag_run, last_ti=None)
+
+        # The validator should normalize to an empty list
+        assert context.dag_run.consumed_asset_events == []
+
+    def test_dagrun_context_attached_consumed_asset_events(self, session):
+        """
+        DagRunContext should safely normalize consumed_asset_events
+        when the DagRun is attached to a session.
+        """
+        current_time = timezone.utcnow()
+        dag_run = DagRun(
+            dag_id="test_dag",
+            run_id="test_run_attached",
+            logical_date=current_time,
+            state="running",
+            run_type="manual",
+        )
+
+        # Do not detach
+        session.add(dag_run)
+        session.flush()
+
+        # Construct context while DagRun is still attached.
+        context = DagRunContext(
+            dag_run=dag_run,
+            last_ti=None,
+        )
+
+        # Relationship should still be normalized and accessible.
+        # Preserves existing behavior.
+        assert context.dag_run.consumed_asset_events == []
 
 
 class TestDagCallbackRequestWithContext:
