@@ -27,6 +27,7 @@ twice. With durable execution, each step the agent completes is recorded in a jo
 kept for the task instance, and the retry replays the recorded steps instead of running
 them again. Only the steps the failed attempt never finished run live.
 
+<<<<<<< HEAD
 On Airflow 3.3 and later, ``AgentOperator`` and ``@task.agent`` do this by default for
 every task that can retry. A task that cannot run again (no retries, and from Airflow 3.4
 no ``retry_policy`` either) has nothing to replay, so it runs as before. To decide
@@ -34,6 +35,19 @@ no ``retry_policy`` either) has nothing to replay, so it runs as before. To deci
 ``LLMBatchOperator`` re-attaches to its running batch instead (:ref:`llm-batch-reattach`). To resume a Strands Agents agent on a retry, see
 :ref:`howto/frameworks:strands-durable`; for an OpenAI Agents SDK agent, see
 :ref:`howto/frameworks:openai-agents-durable`.
+=======
+Durable execution only helps a task that has retries. To decide *whether* a failure is
+worth retrying, see :doc:`retry_policies`; a retried ``LLMBatchOperator`` re-attaches to
+its running batch instead (:ref:`llm-batch-reattach`). To resume a Strands Agents agent on a
+retry, see :ref:`howto/frameworks:strands-durable`; for an OpenAI Agents SDK agent, see
+:ref:`howto/frameworks:openai-agents-durable`.
+
+.. meta::
+    :description: Set durable=True on an agent task so that a retry replays the model and tool calls that already finished instead of running and paying for them again.
+
+Turn it on
+----------
+>>>>>>> 8c19ab81a5 (Improve LLM documentation build diagnostics and tests)
 
 When it is on
 -------------
