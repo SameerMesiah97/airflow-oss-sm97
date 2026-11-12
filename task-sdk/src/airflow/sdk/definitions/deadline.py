@@ -103,7 +103,11 @@ class DagRunLogicalDateDeadline(BaseDeadlineReference):
 class DagRunQueuedAtDeadline(BaseDeadlineReference):
     """A deadline that returns when a DagRun was queued."""
 
-    evaluation_timing: str = DAGRUN_QUEUED_TIMING
+    evaluation_timing = DAGRUN_QUEUED_TIMING
+
+
+class DagRunStartDateDeadline(BaseDeadlineReference):
+    """A deadline reference based on when the DagRun started."""
 
 
 @dataclass
@@ -306,8 +310,9 @@ class DeadlineReference:
             (DagRunQueuedAtDeadline,), DAGRUN_QUEUED_TIMING
         )
 
+        DAGRUN_STARTED: DeadlineReferenceTypes = (DagRunStartDateDeadline,)
         # All DagRun-related deadline types.
-        DAGRUN: DeadlineReferenceTypes = DAGRUN_CREATED + DAGRUN_QUEUED
+        DAGRUN: DeadlineReferenceTypes = DAGRUN_CREATED + DAGRUN_QUEUED + DAGRUN_STARTED
 
         # The attributes above that a custom reference can be classified under.  DAGRUN is their
         # union rather than a classification of its own, so it is deliberately absent.  Each name
@@ -316,6 +321,7 @@ class DeadlineReference:
 
     DAGRUN_LOGICAL_DATE: DeadlineReferenceType = DagRunLogicalDateDeadline()
     DAGRUN_QUEUED_AT: DeadlineReferenceType = DagRunQueuedAtDeadline()
+    DAGRUN_START_DATE: DeadlineReferenceType = DagRunStartDateDeadline()
 
     # These map short class name to qualname(s); used to handle custom reference name collisions.
     _custom_reference_name_map: dict[str, str] = {}
@@ -396,7 +402,15 @@ class DeadlineReference:
         key = qualname(reference_class)
 
         classification = getattr(deadline_reference_type, "classification", None)
-        if classification not in cls.TYPES._CLASSIFICATIONS:
+        
+        # Add to appropriate deadline_reference_type classification
+        if deadline_reference_type is cls.TYPES.DAGRUN_CREATED:
+            cls.TYPES.DAGRUN_CREATED += (reference_class,)
+            reference_class.evaluation_timing = DAGRUN_CREATED_TIMING
+        elif deadline_reference_type is cls.TYPES.DAGRUN_QUEUED:
+            cls.TYPES.DAGRUN_QUEUED += (reference_class,)
+            reference_class.evaluation_timing = DAGRUN_QUEUED_TIMING
+        else:
             raise ValueError(
                 f"Invalid deadline reference type {deadline_reference_type}; "
                 "must be a valid DeadlineReference.TYPES option."
@@ -457,7 +471,7 @@ class DeadlineReference:
         reference_class.evaluation_timing = classification
 
         # Refresh the combined DAGRUN tuple
-        cls.TYPES.DAGRUN = cls.TYPES.DAGRUN_CREATED + cls.TYPES.DAGRUN_QUEUED
+        cls.TYPES.DAGRUN = cls.TYPES.DAGRUN_CREATED + cls.TYPES.DAGRUN_QUEUED + cls.TYPES.DAGRUN_STARTED
 
         return reference_class
 
