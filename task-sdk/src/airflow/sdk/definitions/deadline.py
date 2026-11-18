@@ -402,15 +402,7 @@ class DeadlineReference:
         key = qualname(reference_class)
 
         classification = getattr(deadline_reference_type, "classification", None)
-        
-        # Add to appropriate deadline_reference_type classification
-        if deadline_reference_type is cls.TYPES.DAGRUN_CREATED:
-            cls.TYPES.DAGRUN_CREATED += (reference_class,)
-            reference_class.evaluation_timing = DAGRUN_CREATED_TIMING
-        elif deadline_reference_type is cls.TYPES.DAGRUN_QUEUED:
-            cls.TYPES.DAGRUN_QUEUED += (reference_class,)
-            reference_class.evaluation_timing = DAGRUN_QUEUED_TIMING
-        else:
+        if classification not in cls.TYPES._CLASSIFICATIONS:
             raise ValueError(
                 f"Invalid deadline reference type {deadline_reference_type}; "
                 "must be a valid DeadlineReference.TYPES option."
