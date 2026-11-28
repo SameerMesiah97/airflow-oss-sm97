@@ -231,6 +231,7 @@ def _is_markdown_build(app: Sphinx) -> bool:
 
 def _remember_example_sources(app: Sphinx, doctree: nodes.document) -> None:
     """Preserve example filenames before exampleinclude replaces its headers."""
+    # Import by the bare name used by conf.py to preserve ExampleHeader's class identity.
     from exampleinclude import ExampleHeader
 
     for header in doctree.findall(ExampleHeader):
@@ -272,6 +273,19 @@ def _clean_markdown_doctree(app: Sphinx, doctree: nodes.document, docname: str) 
 
     if not _is_markdown_build(app):
         return
+
+    # Shared HTML doctrees already contain smart quotes; normalize prose at output time.
+    for text in list(doctree.findall(nodes.Text)):
+        if any(
+            isinstance(ancestor, (nodes.literal, nodes.math, nodes.FixedTextElement))
+            for ancestor in _ancestors(text)
+        ):
+            continue
+
+        normalized = text.astext().translate(_TYPOGRAPHY)
+        if normalized != text.astext():
+            text.parent.replace(text, nodes.Text(normalized))
+
     site_root = urljoin(app.config.llms_txt_site_url, "/")
     release_url = app.config.llms_txt_release_source_url
     source_url = app.config.llms_txt_source_url

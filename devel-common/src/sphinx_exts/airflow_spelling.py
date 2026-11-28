@@ -175,7 +175,7 @@ def _describe(node: nodes.Text, text: str, word: str, offset: int) -> dict[str, 
 
 
 def _start(app: Sphinx) -> None:
-    if app.config.airflow_spelling_output:
+    if app.builder.name == "html" and app.config.airflow_spelling_output:
         setattr(app, _RUN_ATTRIBUTE, _SpellingRun(app))
 
 

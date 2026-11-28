@@ -563,6 +563,7 @@ def rendered_docs(tmp_path):
         "llms_txt_enabled = True\n"
         'llms_txt_suffix_mode = "append"\n'
         "llms_txt_build_parallel = False\n"
+        'smartquotes_excludes = {"builders": ["man", "text", "spelling", "llms-markdown"]}\n'
         f"exampleinclude_sourceroot = {str(source)!r}\n"
         f"llms_txt_repo_root = {str(source)!r}\n"
         'llms_txt_source_url = "https://github.com/apache/airflow/blob/test-ref/"\n',
@@ -613,6 +614,14 @@ Following paragraph outside the note.
    :caption: Further reading
 
    child
+
+Don't "quote" this -- dash.
+
+Keep ``Don\u2019t \u201cchange\u201d this`` unchanged.
+
+.. code-block:: text
+
+   Don\u2019t \u201cchange\u201d this \u2013 dash.
 
 Example
 -------
@@ -707,3 +716,12 @@ def test_rendered_same_page_link(rendered_docs):
     rendered_markdown = rendered_docs.markdown
 
     assert "[Setup](#setup-section)" in rendered_markdown
+
+
+def test_rendered_typography(rendered_docs):
+    """Normalize Markdown prose while preserving literal content and HTML typography."""
+    assert 'Don\'t "quote" this - dash.' in rendered_docs.markdown
+    assert "Don\u2019t \u201cquote\u201d this \u2013 dash." in rendered_docs.html
+
+    assert "`Don\u2019t \u201cchange\u201d this`" in rendered_docs.markdown
+    assert "Don\u2019t \u201cchange\u201d this \u2013 dash." in rendered_docs.markdown
